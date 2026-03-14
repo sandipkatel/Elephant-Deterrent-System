@@ -12,7 +12,7 @@ from threading import Thread, Lock
 
 # --- CONFIGURATION ---
 # Uses Ultralytics pretrained model (auto-downloads on first run).
-MODEL_PATH = "yolov8n.pt"
+MODEL_PATH = "../yolov8n.pt"
 LED_PATH = "/sys/class/leds/ACT"
 CONFIDENCE = 0.5
 CAMERA_WIDTH = 640

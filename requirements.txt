@@ -3,3 +3,5 @@ ultralytics
 opencv-python
 gpiod
 Flask
+pyserial
+lgpio
