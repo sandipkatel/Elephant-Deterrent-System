@@ -10,7 +10,7 @@ from flask import Flask, Response
 from threading import Thread, Lock
 
 # --- CONFIGURATION ---
-MODEL_PATH = "best.pt"
+MODEL_PATH = "../models/best.pt"
 LED_PATH = "/sys/class/leds/ACT"
 CONFIDENCE = 0.5
 CAMERA_WIDTH = 640

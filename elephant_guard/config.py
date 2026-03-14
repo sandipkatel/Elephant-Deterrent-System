@@ -1,6 +1,6 @@
 # Central configuration for the elephant guard system.
 
-MODEL_PATH = "best.pt"
+MODEL_PATH = "../models/best.pt"
 LED_PATH = "/sys/class/leds/ACT"
 CONFIDENCE = 0.5
 CAMERA_WIDTH = 640
