@@ -347,7 +347,7 @@ class LDRSensor:
 
 # --- BUZZER (GPIO18 via lgpio tx_pwm) ---
 
-class Buzzer:
+class Buzzer:   # TODO: Change to USB sound card and play actual sound file instead of PWM sweep
     """Drives a passive buzzer on GPIO18 using lgpio tx_pwm."""
 
     def __init__(self):

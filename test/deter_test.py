@@ -25,12 +25,12 @@
 
 import subprocess
 
-def play_sound(filepath, volume=5, device="hw:2,0"):
+def play_sound(filepath, volume=1, device="hw:2,0"):
     command = (
         f'ffmpeg -i {filepath} -filter:a "volume={volume}" '
         f'-f wav - | aplay -D {device}'
     )
     subprocess.run(command, shell=True)
 
-# Play your bee buzz
+# Play bee buzz
 play_sound("media/test_sound.mp3")
