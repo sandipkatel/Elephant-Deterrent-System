@@ -12,14 +12,15 @@ from threading import Thread, Lock
 
 # --- CONFIGURATION ---
 # Uses Ultralytics pretrained model (auto-downloads on first run).
-MODEL_PATH = "../yolov8n.pt"
+MODEL_PATH = "../models/yolov8n.pt"
 LED_PATH = "/sys/class/leds/ACT"
 CONFIDENCE = 0.5
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
+CAMERA_WIDTH = 1920
+CAMERA_HEIGHT = 1080
+CAMERA_FPS = 30
+
 YOLO_SIZE = 256
 INFER_EVERY = 10
-CAMERA_FPS = 15
 
 # COCO class name used by yolov8n.pt
 TARGET_CLASS_NAME = "elephant"
@@ -29,7 +30,7 @@ STREAM_PORT = 5000
 # PIR Sensor
 GPIO_CHIP = "/dev/gpiochip4"
 PIR_LINE = 27                  # GPIO pin 27
-PIR_COOLDOWN = 5              # Seconds to keep camera on after last motion
+PIR_COOLDOWN = 30              # Seconds to keep camera on after last motion
 PIR_WARMUP = 5                # Seconds to let PIR sensor stabilize
 
 # LDR Sensor (digital output via comparator module DO pin)
