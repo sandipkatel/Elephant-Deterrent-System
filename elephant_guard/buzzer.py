@@ -1,60 +1,93 @@
-import time
-import math
+import shutil
+import subprocess
 from threading import Thread, Lock
-
-import lgpio
 
 from . import config
 
 
-class Buzzer: # TODO: Change to USB sound card and play actual sound file instead of PWM sweep
-    """Drives a passive buzzer on GPIO18 using lgpio tx_pwm."""
+class Buzzer:
+    """Plays a bee sound via ffmpeg piped to aplay (USB sound device)."""
 
     def __init__(self):
-        self._h = None
+        self._process = None
         self._available = False
-        try:
-            self._h = lgpio.gpiochip_open(0)
-            lgpio.gpio_claim_output(self._h, config.BUZZER_PIN)
-            self._available = True
-        except Exception as e:
-            print(f"  Buzzer warning  : unavailable ({e})")
-            if self._h is not None:
-                try:
-                    lgpio.gpiochip_close(self._h)
-                except Exception:
-                    pass
-                self._h = None
         self._busy = False
         self._lock = Lock()
-        if self._available:
-            print("  Buzzer          : Ready (GPIO18 via lgpio)")
+
+        self._sound_path = config.BEE_SOUND_PATH
+        self._audio_device = config.AUDIO_DEVICE
+        self._volume = config.AUDIO_VOLUME
+
+        if not self._sound_path.exists():
+            print(f"  Buzzer warning  : missing sound file ({self._sound_path})")
+            return
+
+        if shutil.which("ffmpeg") is None or shutil.which("aplay") is None:
+            print("  Buzzer warning  : ffmpeg/aplay not found")
+            return
+
+        self._available = True
+        print(f"  Buzzer          : Ready (ffmpeg -> aplay on {self._audio_device})")
 
     def _bee_buzz(self):
-        if not self._available:
-            with self._lock:
-                self._busy = False
-            return
-        start = time.time()
-        duration = config.BUZZER_BEE_DURATION
-        duty = max(0, min(100, int(config.BUZZER_DUTY)))
-        min_f = config.BUZZER_MIN_FREQ
-        max_f = config.BUZZER_MAX_FREQ
-
+        ffmpeg_proc = None
         try:
-            while time.time() - start < duration:
-                t = time.time() - start
-                wave = (math.sin(t * 2.0 * math.pi * 6.0) + 1.0) / 2.0
-                freq = min_f + (max_f - min_f) * wave
-                lgpio.tx_pwm(self._h, config.BUZZER_PIN, int(freq), duty)
-                time.sleep(config.BUZZER_STEP_SEC)
+            ffmpeg_proc = subprocess.Popen(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-i",
+                    str(self._sound_path),
+                    "-filter:a",
+                    f"volume={self._volume}",
+                    "-ac",
+                    "2",
+                    "-ar",
+                    "44100",
+                    "-f",
+                    "wav",
+                    "-",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            self._process = subprocess.Popen(
+                ["aplay", "-q", "-D", self._audio_device],
+                stdin=ffmpeg_proc.stdout,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            if ffmpeg_proc.stdout is not None:
+                ffmpeg_proc.stdout.close()
+
+            _, aplay_err = self._process.communicate()
+            ffmpeg_err = ffmpeg_proc.stderr.read().decode(errors="ignore") if ffmpeg_proc.stderr else ""
+            ffmpeg_rc = ffmpeg_proc.wait()
+
+            if self._process.returncode != 0:
+                err = (aplay_err or "").strip()
+                print(f"  Buzzer warning  : aplay failed ({err or self._process.returncode})")
+            if ffmpeg_rc != 0:
+                err = (ffmpeg_err or "").strip()
+                print(f"  Buzzer warning  : ffmpeg failed ({err or ffmpeg_rc})")
+        except Exception as e:
+            print(f"  Buzzer warning  : failed to play sound ({e})")
         finally:
-            lgpio.tx_pwm(self._h, config.BUZZER_PIN, 0, 0)
+            if ffmpeg_proc is not None and ffmpeg_proc.poll() is None:
+                try:
+                    ffmpeg_proc.terminate()
+                except Exception:
+                    pass
             with self._lock:
                 self._busy = False
+                self._process = None
 
     def buzz(self):
-        """Run a low-volume bee-buzz pattern in a background thread."""
+        """Play the bee alert sound once in a background thread."""
         if not self._available:
             return
         with self._lock:
@@ -64,10 +97,10 @@ class Buzzer: # TODO: Change to USB sound card and play actual sound file instea
         Thread(target=self._bee_buzz, daemon=True).start()
 
     def cleanup(self):
-        if not self._available or self._h is None:
-            return
-        lgpio.tx_pwm(self._h, config.BUZZER_PIN, 0, 0)
-        try:
-            lgpio.gpiochip_close(self._h)
-        except Exception:
-            pass
+        with self._lock:
+            proc = self._process
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass

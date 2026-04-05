@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ElephantWatch — Field Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #111418;
+    --bg3: #181d23;
+    --border: rgba(255,255,255,0.06);
+    --border-hi: rgba(255,255,255,0.13);
+    --text: #e8eaed;
+    --muted: #6b7280;
+    --accent: #f59e0b;
+    --accent2: #10b981;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 58px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo span { color: var(--accent); }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .clock { color: var(--text); font-size: 13px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid;
+    transition: all 0.4s;
+  }
+  .status-pill.standby { border-color: rgba(107,114,128,0.4); color: var(--muted); background: rgba(107,114,128,0.08); }
+  .status-pill.active  { border-color: rgba(16,185,129,0.4); color: var(--accent2); background: rgba(16,185,129,0.08); }
+  .status-pill.alert   { border-color: rgba(239,68,68,0.5); color: var(--danger); background: rgba(239,68,68,0.08); }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill-dot.pulse { animation: blink 1s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── MAIN GRID ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: auto auto;
+    gap: 1px;
+    background: var(--border);
+    min-height: calc(100vh - 58px);
+  }
+
+  /* ── CAMERA PANEL ── */
+  .camera-panel {
+    background: var(--bg);
+    grid-row: 1 / 3;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .camera-feed {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+  }
+  .camera-feed img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .camera-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  /* Corner brackets */
+  .corner { position: absolute; width: 24px; height: 24px; border-color: var(--accent); border-style: solid; opacity: 0.6; }
+  .corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+
+  .camera-hud {
+    position: absolute;
+    top: 20px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(245,158,11,0.7);
+    letter-spacing: 0.15em;
+    text-align: center;
+  }
+  .alert-banner {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 20px;
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    transition: all 0.3s;
+  }
+  .alert-banner.clear { background: rgba(16,185,129,0.15); color: var(--accent2); border-top: 1px solid rgba(16,185,129,0.2); }
+  .alert-banner.elephant { background: rgba(239,68,68,0.2); color: #fca5a5; border-top: 1px solid rgba(239,68,68,0.3); animation: alertpulse 1.5s ease-in-out infinite; }
+  .alert-banner.standby { background: rgba(107,114,128,0.1); color: var(--muted); border-top: 1px solid var(--border); }
+  @keyframes alertpulse { 0%,100%{background:rgba(239,68,68,0.15)} 50%{background:rgba(239,68,68,0.3)} }
+
+  .camera-footer {
+    display: flex; gap: 1px; background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+  .cam-stat {
+    flex: 1;
+    background: var(--bg2);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+  }
+  .cam-stat-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
+  .cam-stat-val { font-size: 14px; font-weight: 500; color: var(--text); }
+
+  /* ── RIGHT SIDEBAR ── */
+  .sidebar {
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  /* ── STAT CARD ── */
+  .stat-card {
+    background: var(--bg2);
+    padding: 18px 20px;
+  }
+  .stat-card-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-card-label::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 10px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .stat-name { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .stat-value { font-size: 13px; font-weight: 500; color: var(--text); font-family: var(--font-mono); }
+  .stat-value.good { color: var(--accent2); }
+  .stat-value.warn { color: var(--accent); }
+  .stat-value.danger { color: var(--danger); }
+
+  /* Bar */
+  .bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; margin-top: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease, background 0.4s; }
+
+  /* ── DETECTION LOG ── */
+  .log-panel {
+    background: var(--bg2);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .log-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    max-height: 220px;
+  }
+  .log-list::-webkit-scrollbar { width: 3px; }
+  .log-list::-webkit-scrollbar-track { background: transparent; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+  .log-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+  .log-time { color: var(--muted); min-width: 55px; }
+  .log-type { font-weight: 500; }
+  .log-type.motion { color: var(--info); }
+  .log-type.elephant { color: var(--danger); }
+  .log-type.clear { color: var(--accent2); }
+  .log-type.standby { color: var(--muted); }
+  .log-type.buzz { color: var(--accent); }
+  .log-msg { color: #9ca3af; flex: 1; }
+
+  /* ── DETECTION BOXES ── */
+  .det-panel {
+    background: var(--bg2);
+    padding: 16px;
+  }
+  .det-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .det-item {
+    background: var(--bg3);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .det-conf { font-size: 16px; font-weight: 700; color: var(--danger); margin-bottom: 4px; }
+  .det-bbox { color: var(--muted); }
+  .det-empty { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: center; padding: 12px 0; }
+
+  /* ── SECOND ROW RIGHT (system stats) ── */
+  .sysrow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── SPARKLINE ── */
+  .sparkline-wrap { margin-top: 8px; }
+  canvas.spark { width: 100%; height: 36px; display: block; }
+
+  /* ── ALERT FLASH ── */
+  .alert-flash {
+    position: fixed;
+    inset: 0;
+    background: rgba(239,68,68,0.06);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 999;
+    transition: opacity 0.2s;
+  }
+  .alert-flash.show { opacity: 1; }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+    .camera-panel { grid-row: auto; min-height: 50vw; }
+    .sysrow { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="alert-flash" id="alertFlash"></div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🐘</div>
+    Elephant<span>Watch</span>
+  </div>
+  <div class="topbar-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="status-pill standby" id="statusPill">
+      <div class="pill-dot" id="pillDot"></div>
+      <span id="pillText">STANDBY</span>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- CAMERA -->
+  <div class="camera-panel">
+    <div class="panel-header">
+      <div class="panel-title">Live Feed — rpicam-vid</div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)" id="resLabel">1920×1080 · 30fps</div>
+    </div>
+    <div class="camera-feed">
+      <img src="/stream" id="liveImg" alt="Camera feed"/>
+      <div class="camera-overlay">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="camera-hud" id="camHud">● REC &nbsp;·&nbsp; YOLO-v8 &nbsp;·&nbsp; CONF 80%</div>
+      </div>
+      <div class="alert-banner standby" id="alertBanner">
+        <span id="alertIcon">◯</span>
+        <span id="alertText">STANDBY — Waiting for motion</span>
+      </div>
+    </div>
+    <div class="camera-footer">
+      <div class="cam-stat"><div class="cam-stat-label">Frames</div><div class="cam-stat-val" id="frameCount">—</div></div>
+      <div class="cam-stat"><div class="cam-stat-label">FPS</div><div class="cam-stat-val" id="fpsVal">—</div></div>
+      <div class="cam-stat"><div class="cam-stat-label">Infer every</div><div class="cam-stat-val">10 fr</div></div>
+      <div class="cam-stat"><div class="cam-stat-label">Model size</div><div class="cam-stat-val">256px</div></div>
+      <div class="cam-stat"><div class="cam-stat-label">Last motion</div><div class="cam-stat-val" id="lastMotion">—</div></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- System Health -->
+    <div class="stat-card">
+      <div class="stat-card-label">System Health</div>
+      <div class="stat-row">
+        <span class="stat-name">CPU Temp</span>
+        <span class="stat-value" id="cpuTemp">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="cpuTempBar" style="width:0%"></div></div>
+
+      <div class="stat-row" style="margin-top:10px">
+        <span class="stat-name">CPU Usage</span>
+        <span class="stat-value" id="cpuUsage">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="cpuUsageBar" style="width:0%;background:var(--info)"></div></div>
+
+      <div class="stat-row" style="margin-top:10px">
+        <span class="stat-name">RAM</span>
+        <span class="stat-value" id="ramUsage">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="ramBar" style="width:0%;background:var(--accent2)"></div></div>
+
+      <div class="stat-row" style="margin-top:10px">
+        <span class="stat-name">Disk</span>
+        <span class="stat-value" id="diskUsage">—</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" id="diskBar" style="width:0%;background:#8b5cf6"></div></div>
+
+      <div class="stat-row" style="margin-top:10px">
+        <span class="stat-name">Uptime</span>
+        <span class="stat-value good" id="uptime">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Throttle</span>
+        <span class="stat-value" id="throttle">—</span>
+      </div>
+    </div>
+
+    <!-- Session Stats -->
+    <div class="stat-card">
+      <div class="stat-card-label">Session Stats</div>
+      <div class="stat-row">
+        <span class="stat-name">Mode</span>
+        <span class="stat-value" id="modeVal">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Detections</span>
+        <span class="stat-value danger" id="detCount">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Buzzer fires</span>
+        <span class="stat-value warn" id="buzzCount">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">PIR events</span>
+        <span class="stat-value" id="pirCount">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Camera</span>
+        <span class="stat-value good" id="camStatus">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">PIR cooldown</span>
+        <span class="stat-value" id="cooldownVal">—</span>
+      </div>
+
+      <!-- CPU temp sparkline -->
+      <div class="sparkline-wrap">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">CPU Temp history</div>
+        <canvas class="spark" id="sparkCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Detection boxes -->
+    <div class="det-panel">
+      <div class="stat-card-label">Active Detections</div>
+      <div class="det-list" id="detList">
+        <div class="det-empty">No detections</div>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="log-panel">
+      <div class="panel-header">
+        <div class="panel-title">Event Log</div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)" id="logCount">0 events</div>
+      </div>
+      <div class="log-list" id="logList"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-GB');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── SPARKLINE ──
+const sparkCanvas = document.getElementById('sparkCanvas');
+const sCtx = sparkCanvas.getContext('2d');
+const tempHistory = [];
+const MAX_SPARK = 60;
+
+function drawSparkline() {
+  const W = sparkCanvas.offsetWidth || 280;
+  const H = 36;
+  sparkCanvas.width = W;
+  sparkCanvas.height = H;
+  sCtx.clearRect(0, 0, W, H);
+  if (tempHistory.length < 2) return;
+  const min = Math.min(...tempHistory) - 2;
+  const max = Math.max(...tempHistory) + 2;
+  const pts = tempHistory.map((v, i) => ({
+    x: (i / (tempHistory.length - 1)) * W,
+    y: H - ((v - min) / (max - min)) * H
+  }));
+  sCtx.beginPath();
+  sCtx.moveTo(pts[0].x, pts[0].y);
+  pts.slice(1).forEach(p => sCtx.lineTo(p.x, p.y));
+  sCtx.strokeStyle = '#f59e0b';
+  sCtx.lineWidth = 1.5;
+  sCtx.stroke();
+  // Fill
+  sCtx.lineTo(W, H); sCtx.lineTo(0, H); sCtx.closePath();
+  sCtx.fillStyle = 'rgba(245,158,11,0.08)';
+  sCtx.fill();
+  // Latest dot
+  const last = pts[pts.length - 1];
+  sCtx.beginPath();
+  sCtx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+  sCtx.fillStyle = '#f59e0b';
+  sCtx.fill();
+}
+
+// ── EVENT LOG ──
+const logs = [];
+let logCount = 0;
+let buzzerFires = 0;
+let pirEvents = 0;
+let detectionCount = 0;
+
+function addLog(type, msg) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  logs.unshift({ time, type, msg });
+  if (logs.length > 100) logs.pop();
+  logCount++;
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('logList');
+  el.innerHTML = logs.slice(0, 30).map(l => `
+    <div class="log-item">
+      <span class="log-time">${l.time}</span>
+      <span class="log-type ${l.type}">${l.type.toUpperCase()}</span>
+      <span class="log-msg">${l.msg}</span>
+    </div>`).join('');
+  document.getElementById('logCount').textContent = logCount + ' events';
+}
+
+// ── DETECTION BOXES ──
+function renderDetections(detections) {
+  const el = document.getElementById('detList');
+  if (!detections || detections.length === 0) {
+    el.innerHTML = '<div class="det-empty">No active detections</div>';
+    return;
+  }
+  el.innerHTML = detections.map((d, i) => `
+    <div class="det-item">
+      <div class="det-conf">${(d.confidence * 100).toFixed(1)}% confidence</div>
+      <div class="det-bbox">Box: (${d.bbox[0]}, ${d.bbox[1]}) → (${d.bbox[2]}, ${d.bbox[3]})</div>
+      <div class="det-bbox">Size: ${d.bbox[2]-d.bbox[0]}×${d.bbox[3]-d.bbox[1]}px · Center: (${Math.round((d.bbox[0]+d.bbox[2])/2)}, ${Math.round((d.bbox[1]+d.bbox[3])/2)})</div>
+    </div>`).join('');
+}
+
+// ── BAR HELPERS ──
+function setBar(id, pct, dangerThresh, warnThresh) {
+  const bar = document.getElementById(id);
+  if (!bar) return;
+  bar.style.width = Math.min(100, pct) + '%';
+  if (dangerThresh && pct >= dangerThresh) bar.style.background = 'var(--danger)';
+  else if (warnThresh && pct >= warnThresh) bar.style.background = 'var(--accent)';
+}
+
+function colorVal(id, val, dangerThresh, warnThresh) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (dangerThresh && val >= dangerThresh) { el.className = 'stat-value danger'; }
+  else if (warnThresh && val >= warnThresh) { el.className = 'stat-value warn'; }
+  else { el.className = 'stat-value good'; }
+}
+
+// ── STATE TRACKING ──
+let prevMode = null;
+let prevElephant = false;
+let prevMotion = false;
+let prevBuzz = false;
+
+// ── MAIN POLL ──
+async function poll() {
+  try {
+    const res = await fetch('/status');
+    if (!res.ok) return;
+    const d = await res.json();
+
+    // Status pill
+    const pill = document.getElementById('statusPill');
+    const dot = document.getElementById('pillDot');
+    const pillText = document.getElementById('pillText');
+    if (d.elephant_detected) {
+      pill.className = 'status-pill alert';
+      dot.className = 'pill-dot pulse';
+      pillText.textContent = 'ELEPHANT DETECTED';
+    } else if (d.mode === 'active') {
+      pill.className = 'status-pill active';
+      dot.className = 'pill-dot pulse';
+      pillText.textContent = 'ACTIVE — MONITORING';
+    } else {
+      pill.className = 'status-pill standby';
+      dot.className = 'pill-dot';
+      pillText.textContent = 'STANDBY';
+    }
+
+    // Alert banner
+    const banner = document.getElementById('alertBanner');
+    const alertIcon = document.getElementById('alertIcon');
+    const alertText = document.getElementById('alertText');
+    if (d.elephant_detected) {
+      banner.className = 'alert-banner elephant';
+      alertIcon.textContent = '⚠';
+      alertText.textContent = `ELEPHANT DETECTED — ${d.detections.length} object(s) · Deterrent active`;
+      if (!prevElephant) {
+        document.getElementById('alertFlash').classList.add('show');
+        setTimeout(() => document.getElementById('alertFlash').classList.remove('show'), 600);
+        addLog('elephant', `Detected ${d.detections.length} elephant(s)`);
+        detectionCount += d.detections.length;
+        document.getElementById('detCount').textContent = detectionCount;
+      }
+    } else if (d.mode === 'active') {
+      banner.className = 'alert-banner clear';
+      alertIcon.textContent = '✓';
+      alertText.textContent = 'Clear — No elephant detected';
+    } else {
+      banner.className = 'alert-banner standby';
+      alertIcon.textContent = '◯';
+      alertText.textContent = 'STANDBY — Waiting for motion';
+    }
+
+    // Log events
+    if (d.mode !== prevMode) {
+      if (d.mode === 'active') { addLog('motion', 'PIR triggered — camera started'); pirEvents++; document.getElementById('pirCount').textContent = pirEvents; }
+      else if (prevMode === 'active') { addLog('standby', 'Motion timeout — entering standby'); }
+      prevMode = d.mode;
+    }
+    if (!d.elephant_detected && prevElephant) { addLog('clear', 'No elephant in frame'); }
+    prevElephant = d.elephant_detected;
+
+    // Camera stats
+    document.getElementById('frameCount').textContent = d.frame_count?.toLocaleString() || '—';
+    document.getElementById('fpsVal').textContent = d.fps ? d.fps.toFixed(1) : '—';
+    document.getElementById('lastMotion').textContent = d.last_motion_ago !== undefined && d.last_motion_ago < 9000
+      ? Math.round(d.last_motion_ago) + 's ago' : '—';
+    document.getElementById('cooldownVal').textContent = d.mode === 'active'
+      ? Math.max(0, 30 - Math.round(d.last_motion_ago || 30)) + 's left' : '—';
+    document.getElementById('modeVal').textContent = d.mode === 'active' ? 'ACTIVE' : 'STANDBY';
+    document.getElementById('modeVal').className = 'stat-value ' + (d.mode === 'active' ? 'good' : '');
+    document.getElementById('camStatus').textContent = d.mode === 'active' ? 'RUNNING' : 'OFF';
+
+    // System
+    if (d.system) {
+      const s = d.system;
+      const cpuT = s.cpu_temp;
+      document.getElementById('cpuTemp').textContent = cpuT.toFixed(1) + '°C';
+      colorVal('cpuTemp', cpuT, 75, 65);
+      setBar('cpuTempBar', (cpuT / 85) * 100, 88, 76);
+      document.getElementById('cpuTempBar').style.background =
+        cpuT >= 75 ? 'var(--danger)' : cpuT >= 65 ? 'var(--accent)' : 'var(--accent)';
+
+      document.getElementById('cpuUsage').textContent = s.cpu_percent.toFixed(0) + '%';
+      setBar('cpuUsageBar', s.cpu_percent, 90, 70);
+
+      const ramPct = (s.ram_used / s.ram_total * 100);
+      document.getElementById('ramUsage').textContent =
+        (s.ram_used / 1024).toFixed(1) + ' / ' + (s.ram_total / 1024).toFixed(1) + ' GB';
+      setBar('ramBar', ramPct, 90, 75);
+
+      document.getElementById('diskUsage').textContent = s.disk_percent.toFixed(0) + '%';
+      setBar('diskBar', s.disk_percent, 90, 80);
+
+      document.getElementById('uptime').textContent = s.uptime;
+      document.getElementById('throttle').textContent = s.throttle;
+      document.getElementById('throttle').className = 'stat-value ' + (s.throttle === 'OK' ? 'good' : 'danger');
+
+      tempHistory.push(cpuT);
+      if (tempHistory.length > MAX_SPARK) tempHistory.shift();
+      drawSparkline();
+    }
+
+    // Buzzer log
+    if (d.buzzer_active && !prevBuzz) {
+      addLog('buzz', 'Deterrent buzzer fired');
+      buzzerFires++;
+      document.getElementById('buzzCount').textContent = buzzerFires;
+    }
+    prevBuzz = d.buzzer_active || false;
+
+    // Detections
+    renderDetections(d.detections);
+
+  } catch (e) {
+    // Server may be restarting
+  }
+}
+
+setInterval(poll, 1500);
+poll();
+</script>
+</body>
+</html>

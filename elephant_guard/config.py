@@ -1,6 +1,8 @@
 # Central configuration for the elephant guard system.
+from pathlib import Path
 
-MODEL_PATH = "../models/best.pt"
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = BASE_DIR / "models" / "best.pt"
 LED_PATH = "/sys/class/leds/ACT"
 CONFIDENCE = 0.5
 CAMERA_WIDTH = 640
@@ -14,17 +16,14 @@ STREAM_PORT = 5000
 # PIR Sensor
 GPIO_CHIP = "/dev/gpiochip4"
 PIR_LINE = 27
-PIR_COOLDOWN = 5
+PIR_COOLDOWN = 30
 PIR_WARMUP = 5
 
-# Buzzer (GPIO18 via lgpio PWM)
-BUZZER_PIN = 18
+# Audio alert
+BEE_SOUND_PATH = BASE_DIR / "media" / "bee.mp3"
 BUZZER_INTERVAL = 5.0
-BUZZER_DUTY = 1  # Lower duty => lower volume (0-100)
-BUZZER_BEE_DURATION = 2.5
-BUZZER_MIN_FREQ = 230
-BUZZER_MAX_FREQ = 320
-BUZZER_STEP_SEC = 0.02
+AUDIO_DEVICE = "hw:2,0"
+AUDIO_VOLUME = 1
 
 # GSM (SIM800L/SIM900 via UART)
 ENABLE_GSM = True

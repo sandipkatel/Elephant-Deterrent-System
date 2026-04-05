@@ -1,6 +1,7 @@
 import sys
 import signal
 import subprocess
+from pathlib import Path
 import numpy as np
 from ultralytics import YOLO
 import time
@@ -12,9 +13,9 @@ from threading import Thread, Lock
 
 # --- CONFIGURATION ---
 # Uses Ultralytics pretrained model (auto-downloads on first run).
-MODEL_PATH = "../models/yolov8n.pt"
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "best.pt"
 LED_PATH = "/sys/class/leds/ACT"
-CONFIDENCE = 0.5
+CONFIDENCE = 0.8
 CAMERA_WIDTH = 1920
 CAMERA_HEIGHT = 1080
 CAMERA_FPS = 30
@@ -32,9 +33,6 @@ GPIO_CHIP = "/dev/gpiochip4"
 PIR_LINE = 27                  # GPIO pin 27
 PIR_COOLDOWN = 30              # Seconds to keep camera on after last motion
 PIR_WARMUP = 5                # Seconds to let PIR sensor stabilize
-
-# LDR Sensor (digital output via comparator module DO pin)
-LDR_LINE = 17                 # GPIO pin number for LDR DO
 
 # Buzzer (GPIO18 via lgpio PWM)
 BUZZER_PIN = 18
@@ -120,22 +118,20 @@ def restore_led():
 
 # --- CONSOLE DISPLAY ---
 
-def draw_console(state, detections, frame_count, fps, last_motion_ago, ldr_dark=False):
+def draw_console(state, detections, frame_count, fps, last_motion_ago):
     print("\033[H\033[J", end="")
     print("=" * 55)
-    print("   🐘  ELEPHANT DETECTION  |  PIR + LDR + Camera")
+    print("   🐘  ELEPHANT DETECTION  |  PIR + Camera")
     print("=" * 55)
 
     if state == "standby":
         print("  MODE   : 💤 STANDBY  (camera off, PIR watching)")
         print(f"  MOTION : last {last_motion_ago:.0f}s ago")
-        print(f"  LIGHT  : {'🌙 Dark' if ldr_dark else '☀️  Bright'}")
         print("-" * 55)
         print("  ✅ STATUS : Idle — Waiting for motion")
     else:
         print("  MODE   : 📷 ACTIVE   (camera + YOLO running)")
         print(f"  MOTION : last {last_motion_ago:.0f}s ago")
-        print(f"  LIGHT  : {'🌙 Dark' if ldr_dark else '☀️  Bright'}")
         print(f"  Frame  : {frame_count:<10}  FPS: {fps:.1f}")
         print(f"  Cooldown: camera off in {max(0, PIR_COOLDOWN - last_motion_ago):.0f}s")
         print("-" * 55)
@@ -303,48 +299,6 @@ class PIRSensor:
         self._stopped = True
 
 
-# --- LDR SENSOR (threaded) ---
-
-class LDRSensor:
-    """Reads LDR digital output (comparator DO pin) in a background thread.
-    DO = LOW when dark, HIGH when bright (pull-up comparator module).
-    """
-
-    def __init__(self):
-        self._is_dark = False
-        self._stopped = False
-        self._lock = Lock()
-        self._thread = Thread(target=self._reader, daemon=True)
-        self._thread.start()
-
-    def _reader(self):
-        try:
-            with gpiod.request_lines(GPIO_CHIP, consumer="ldr_sensor", config={
-                LDR_LINE: gpiod.LineSettings(
-                    direction=gpiod.line.Direction.INPUT,
-                    bias=gpiod.line.Bias.PULL_UP
-                )
-            }) as req:
-                while not self._stopped:
-                    values = req.get_values([LDR_LINE])
-                    # DO = LOW (False) means dark with pull-up comparator module
-                    dark = not bool(values[0].value)
-                    with self._lock:
-                        self._is_dark = dark
-                    time.sleep(0.5)
-        except Exception as e:
-            print(f"  LDR sensor error: {e}")
-            self._stopped = True
-
-    @property
-    def is_dark(self):
-        with self._lock:
-            return self._is_dark
-
-    def stop(self):
-        self._stopped = True
-
-
 # --- BUZZER (GPIO18 via lgpio tx_pwm) ---
 
 class Buzzer:   # TODO: Change to USB sound card and play actual sound file instead of PWM sweep
@@ -414,13 +368,15 @@ class Buzzer:   # TODO: Change to USB sound card and play actual sound file inst
 
 def main():
     print("=" * 55)
-    print("   🐘  ELEPHANT DETECTION  |  PIR + LDR + Camera")
+    print("   🐘  ELEPHANT DETECTION  |  PIR + Camera")
     print("=" * 55)
 
     setup_led()
 
     print("  Loading YOLO model...")
-    model = YOLO(MODEL_PATH)
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+    model = YOLO(str(MODEL_PATH))
     print("  Model loaded.")
 
     # Start MJPEG web stream (shows idle screen until camera activates)
@@ -434,11 +390,6 @@ def main():
     print(f"  PIR sensor warming up ({PIR_WARMUP}s)...")
     time.sleep(PIR_WARMUP)
     print("  PIR sensor ready.")
-
-    # Start LDR sensor
-    print("  Starting LDR sensor...")
-    ldr = LDRSensor()
-    print("  LDR Sensor      : Active")
 
     # Setup Buzzer
     buzzer = Buzzer()
@@ -487,7 +438,7 @@ def main():
                     print("\033[H\033[J", end="")
                     print("  Camera stopped — entering STANDBY\n")
 
-                draw_console("standby", [], 0, 0, last_motion_ago, ldr_dark=ldr.is_dark)
+                draw_console("standby", [], 0, 0, last_motion_ago)
                 time.sleep(0.5)
                 continue
 
@@ -564,7 +515,7 @@ def main():
 
             # Console update on inference frames
             if frame_count % INFER_EVERY == 0:
-                draw_console("active", detections, frame_count, fps, last_motion_ago, ldr_dark=ldr.is_dark)
+                draw_console("active", detections, frame_count, fps, last_motion_ago)
 
             # Update frame for MJPEG web stream
             display_frame = draw_on_frame(frame, detections, fps)
@@ -578,11 +529,10 @@ def main():
         if cam is not None:
             cam.release()
         pir.stop()
-        ldr.stop()
         buzzer.cleanup()
         set_led(False)
         restore_led()
-        print("\n  Shutting down. Camera, PIR, LDR, Buzzer, and LED released.")
+        print("\n  Shutting down. Camera, PIR, Buzzer, and LED released.")
 
 
 if __name__ == "__main__":

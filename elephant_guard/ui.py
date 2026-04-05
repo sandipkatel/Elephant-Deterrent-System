@@ -20,7 +20,7 @@ def create_idle_frame():
 def draw_console(state, detections, frame_count, fps, last_motion_ago, last_sms_ago):
     print("\033[H\033[J", end="")
     print("=" * 60)
-    print("   🐘  ELEPHANT DETECTION  |  PIR + GSM + Buzzer")
+    print("   🐘  ELEPHANT DETECTION  |  PIR + GSM + Audio Alert")
     print("=" * 60)
 
     if state == "standby":

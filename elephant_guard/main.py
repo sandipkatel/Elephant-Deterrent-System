@@ -1,17 +1,43 @@
 import signal
+import sys
 import time
-
+from pathlib import Path
+import socket
 import cv2
 from ultralytics import YOLO
 
-from . import config
-from .camera import CameraStream
-from .sensors import PIRSensor
-from .buzzer import Buzzer
-from .gsm import GSMModem
-from .stream import MjpegServer
-from .ui import create_idle_frame, draw_console, draw_on_frame, build_sms_text
+if __package__ in (None, ""):
+    # Allow running as a script: python elephant_guard/main.py
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from elephant_guard import config
+    from elephant_guard.camera import CameraStream
+    from elephant_guard.sensors import PIRSensor
+    from elephant_guard.buzzer import Buzzer
+    from elephant_guard.gsm import GSMModem
+    from elephant_guard.stream import MjpegServer
+    from elephant_guard.ui import create_idle_frame, draw_console, draw_on_frame, build_sms_text
+else:
+    from . import config
+    from .camera import CameraStream
+    from .sensors import PIRSensor
+    from .buzzer import Buzzer
+    from .gsm import GSMModem
+    from .stream import MjpegServer
+    from .ui import create_idle_frame, draw_console, draw_on_frame, build_sms_text
 
+
+
+def get_lan_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
 def setup_led():
     try:
@@ -44,20 +70,22 @@ def restore_led():
 
 def main():
     print("=" * 60)
-    print("   🐘  ELEPHANT DETECTION  |  PIR + GSM + Buzzer")
+    print("   🐘  ELEPHANT DETECTION  |  PIR + GSM + Audio Alert")
     print("=" * 60)
 
     setup_led()
 
     print("  Loading YOLO model...")
-    model = YOLO(config.MODEL_PATH)
+    if not config.MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model file not found: {config.MODEL_PATH}")
+    model = YOLO(str(config.MODEL_PATH))
     print("  Model loaded.")
 
     idle_frame = create_idle_frame()
     stream = MjpegServer("0.0.0.0", config.STREAM_PORT, idle_frame)
     stream.start()
-    print(f"  Stream at        : http://pielephant.local:{config.STREAM_PORT}")
-
+    pi_ip = get_lan_ip()
+    print(f" Stream at : http://{pi_ip}:{config.STREAM_PORT}/stream")
     print("  Starting PIR sensor...")
     pir = PIRSensor()
     print(f"  PIR sensor warming up ({config.PIR_WARMUP}s)...")
@@ -132,6 +160,8 @@ def main():
                 time.sleep(0.01)
                 continue
 
+            frame = cv2.flip(frame, -1)
+
             frame_count += 1
             fps_counter += 1
 
@@ -193,7 +223,7 @@ def main():
             gsm.cleanup()
         set_led(False)
         restore_led()
-        print("\n  Shutting down. Camera, PIR, GSM, Buzzer, and LED released.")
+        print("\n  Shutting down. Camera, PIR, GSM, Audio Alert, and LED released.")
 
 
 if __name__ == "__main__":
