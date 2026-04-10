@@ -1,0 +1,46 @@
+# Flutter / Dart tool output
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Generated docs
+doc/api/
+
+# Flutter platform generated state
+**/ios/Flutter/.last_build_id
+**/Flutter/ephemeral/
+
+# Android / Gradle
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Symbolication / obfuscation artifacts
+app.*.symbols
+app.*.map.json
+
+# IDE / editor
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS / temp files
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# Logs
+*.log
+
+# Local env files
+.env
+.env.*
