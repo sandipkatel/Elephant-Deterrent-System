@@ -4,7 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = BASE_DIR / "models" / "best.pt"
 LED_PATH = "/sys/class/leds/ACT"
-CONFIDENCE = 0.5
+CONFIDENCE = 0.8
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 YOLO_SIZE = 256
@@ -23,7 +23,7 @@ PIR_WARMUP = 5
 BEE_SOUND_PATH = BASE_DIR / "media" / "bee.mp3"
 BUZZER_INTERVAL = 5.0
 AUDIO_DEVICE = "hw:2,0"
-AUDIO_VOLUME = 1
+AUDIO_VOLUME = 5
 
 # GSM (SIM800L/SIM900 via UART)
 ENABLE_GSM = True

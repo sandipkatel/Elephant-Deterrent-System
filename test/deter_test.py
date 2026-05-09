@@ -25,7 +25,7 @@
 
 import subprocess
 
-def play_sound(filepath, volume=3, device="hw:2,0"):
+def play_sound(filepath, volume=100, device="hw:2,0"):
     command = (
         f'ffmpeg -i media/bee.mp3 -filter:a "volume={volume}" -ac 2 -ar 44100 -f wav - | aplay -D hw:2,0'
         
