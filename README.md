@@ -9,6 +9,8 @@ The Intelligent Elephant Detection and Deterrent System is an integrated hardwar
 
 This repository also includes a trained models and test scripts used during development.
 
+![High level system architecture](https://github.com/sandipkatel/Detection-&-Elephant-Deterrent-System/Documentation/Architectural-Designs.jpg)
+
 Highlights
 ----------
 
@@ -46,8 +48,9 @@ Model files are available under `models/`. The repository contains multiple form
 Documentation
 -------------
 
-See the full project report for design rationale, experimental results, hardware schematics, and evaluation metrics in [Documentation/Report.pdf](https://github.com/sandipkatel/Elephant-Deterrent-System/Documentation/Report.pdf).
-You can also find project presentation slides in [Canva](https://canva.link/zdheqfcpkp3b6ap)
+- See the full project report for design rationale, experimental results, hardware schematics, and evaluation metrics in [Documentation/Report.pdf](https://github.com/sandipkatel/Detection-&-Elephant-Deterrent-System/Documentation/Report.pdf).
+- Find project presentation slides in [Canva](https://canva.link/zdheqfcpkp3b6ap).
+- Also random project pictures are available in [Documentation](https://github.com/sandipkatel/Detection-&-Elephant-Deterrent-System/Documentation)
 
 Contributers
 ------------
