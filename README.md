@@ -9,7 +9,7 @@ The Intelligent Elephant Detection and Deterrent System is an integrated hardwar
 
 This repository also includes a trained models and test scripts used during development.
 
-![High level system architecture](https://github.com/sandipkatel/Detection-&-Elephant-Deterrent-System/Documentation/Architectural-Designs.jpg)
+![High level system architecture](https://github.com/sandipkatel/Intelligent-Elephant-Detection-and-Deterrent-System/blob/main/Documentation/Architectural-Designs.jpg)
 
 Highlights
 ----------
@@ -23,7 +23,7 @@ Quick Start
 -----------
 1. Clone the Repository in Raspberry Pi 5 OS:
    ```
-   git clone https://github.com/sandipkatel/Elephant-Detection-&-Deterrent-System
+   git clone https://github.com/sandipkatel/Intelligent-Elephant-Detection-and-Deterrent-System
    ```
 2. Install Python dependencies (recommended in a virtualenv):
 
@@ -48,9 +48,9 @@ Model files are available under `models/`. The repository contains multiple form
 Documentation
 -------------
 
-- See the full project report for design rationale, experimental results, hardware schematics, and evaluation metrics in [Documentation/Report.pdf](https://github.com/sandipkatel/Detection-&-Elephant-Deterrent-System/Documentation/Report.pdf).
+- See the full project report for design rationale, experimental results, hardware schematics, and evaluation metrics in [Documentation/Report.pdf](https://github.com/sandipkatel/Intelligent-Elephant-Detection-and-Deterrent-System/blob/main/Documentation/Report.pdf).
 - Find project presentation slides in [Canva](https://canva.link/zdheqfcpkp3b6ap).
-- Also random project pictures are available in [Documentation](https://github.com/sandipkatel/Detection-&-Elephant-Deterrent-System/Documentation)
+- Also random project pictures are available in [Documentation](https://github.com/sandipkatel/Intelligent-Elephant-Detection-and-Deterrent-System/tree/main/Documentation)
 
 Contributers
 ------------
